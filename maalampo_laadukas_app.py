@@ -26,7 +26,7 @@ def laske_kustannukset_50v(investointi, omaisuuden_myynti, investointi_laina_aik
 
         sahkolasku = sahkon_hinta_vuosi * sahkon_kulutus_kwh
 
-        # Uusi korjauslaina aloitetaan vain määritellyin välein
+        # Uusi korjauslaina
         if vuosi > 1 and (vuosi - 1) % korjaus_vali == 0:
             uusi_korjaus = {
                 "jaljella": korjaus_hinta,
@@ -70,6 +70,7 @@ def main():
         sahkon_inflaatio = st.number_input("Sähkön hinnan nousu (% / vuosi)", value=2.0)
         sahkon_kulutus = st.number_input("Maalämmön sähkönkulutus (kWh/v)", value=180000.0)
         kaukolampo_kustannus = st.number_input("Kaukolämmön vuosikustannus (€)", value=85000.0)
+        maksavat_neliot = st.number_input("Maksavat neliöt (m²)", value=1000.0)
 
         st.header("Korjaukset")
         korjaus_vali = st.slider("Korjausväli (vuotta)", 5, 30, value=15)
@@ -102,6 +103,27 @@ def main():
     ax.legend()
     ax.grid(True)
     st.pyplot(fig)
+
+    # Vastikevertailu
+    st.markdown("### Ensimmäisen vuoden vastikevertailu per m²")
+
+    def laske_vastike(kustannus_lista, neliot):
+        vuosikustannus = kustannus_lista[0]
+        per_m2_vuosi = vuosikustannus / neliot
+        per_m2_kk = per_m2_vuosi / 12
+        return per_m2_vuosi, per_m2_kk
+
+    kaukolampo_vuosi, kaukolampo_kk = laske_vastike(kaukolampo, maksavat_neliot)
+    maalampo_ilman_vuosi, maalampo_ilman_kk = laske_vastike(maalampo_ilman, maksavat_neliot)
+    maalampo_myynnilla_vuosi, maalampo_myynnilla_kk = laske_vastike(maalampo_myynnilla, maksavat_neliot)
+
+    st.markdown(f"**Kaukolämpö:** {kaukolampo_vuosi:.2f} €/m²/v | {kaukolampo_kk:.2f} €/m²/kk")
+    st.markdown(f"**Maalämpö ilman omaisuuden myyntiä:** {maalampo_ilman_vuosi:.2f} €/m²/v | {maalampo_ilman_kk:.2f} €/m²/kk")
+    st.markdown(f"**Maalämpö omaisuuden myynnillä:** {maalampo_myynnilla_vuosi:.2f} €/m²/v | {maalampo_myynnilla_kk:.2f} €/m²/kk")
+
+    st.markdown("---")
+    st.markdown(f"**Erotus (kaukolämpö vs ilman myyntiä): {kaukolampo_vuosi - maalampo_ilman_vuosi:.2f} €/m²/v**")
+    st.markdown(f"**Erotus (kaukolämpö vs myynnillä): {kaukolampo_vuosi - maalampo_myynnilla_vuosi:.2f} €/m²/v**")
 
 if __name__ == "__main__":
     main()
