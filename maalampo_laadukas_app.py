@@ -3,26 +3,39 @@ import matplotlib.pyplot as plt
 
 def laske_kustannukset(investointi, omaisuuden_myynti, korko, sahkon_hinta, sahkon_kulutus_kwh,
                         laina_aika, korjaus_vuosi, korjaus_kustannus, sahkon_inflaatio):
+
     lainan_maara = investointi - omaisuuden_myynti
     lyhennys = lainan_maara / laina_aika
     jaljella_oleva_laina = lainan_maara
     sahkon_hinta_vuosi = sahkon_hinta
 
     kustannukset = []
+    korjaus_laina_jaljella = 0
+    korjaus_lyhennys = 0
 
     for vuosi in range(1, laina_aika + 1):
         korko_vuodelta = jaljella_oleva_laina * (korko / 100)
         sahkolasku = sahkon_hinta_vuosi * sahkon_kulutus_kwh
-        kokonais = lyhennys + korko_vuodelta + sahkolasku
 
+        # Korjauslaina aktivoituu valittuna vuonna
         if vuosi == korjaus_vuosi:
-            kokonais += korjaus_kustannus
+            korjaus_laina_jaljella = korjaus_kustannus
+            vuodet_jaljella = laina_aika - vuosi + 1
+            korjaus_lyhennys = korjaus_kustannus / vuodet_jaljella
 
+        korjaus_korko = korjaus_laina_jaljella * (korko / 100) if korjaus_laina_jaljella > 0 else 0
+
+        kokonais = lyhennys + korko_vuodelta + sahkolasku + korjaus_lyhennys + korjaus_korko
         kustannukset.append(kokonais)
+
         jaljella_oleva_laina -= lyhennys
+        if korjaus_laina_jaljella > 0:
+            korjaus_laina_jaljella -= korjaus_lyhennys
+
         sahkon_hinta_vuosi *= (1 + sahkon_inflaatio / 100)
 
     return kustannukset
+
 
 # Streamlit-sovellus
 def main():
