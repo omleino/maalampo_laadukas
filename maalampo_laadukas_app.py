@@ -1,45 +1,56 @@
 import streamlit as st
 import matplotlib.pyplot as plt
 
-def laske_kustannukset(investointi, omaisuuden_myynti, korko, sahkon_hinta, sahkon_kulutus_kwh,
-                        laina_aika, korjaus_vuosi, korjaus_kustannus, sahkon_inflaatio):
+def laske_kustannukset_50v(investointi, omaisuuden_myynti, korko, sahkon_hinta, sahkon_kulutus_kwh,
+                            korjaus_vali, korjaus_hinta, korjaus_laina_aika, sahkon_inflaatio):
 
+    vuodet = 50
     lainan_maara = investointi - omaisuuden_myynti
-    lyhennys = lainan_maara / laina_aika
+    lyhennys = lainan_maara / 20  # pääasiallisen investointilainan maksuaika = 20 v
     jaljella_oleva_laina = lainan_maara
     sahkon_hinta_vuosi = sahkon_hinta
 
     kustannukset = []
-    korjaus_laina_jaljella = 0
-    korjaus_lyhennys = 0
+    korjauslainat = []  # lista aktiivisista korjauslainoista
 
-    for vuosi in range(1, laina_aika + 1):
-        korko_vuodelta = jaljella_oleva_laina * (korko / 100)
+    for vuosi in range(1, vuodet + 1):
+        # alkuperäisen investointilainan lyhennys ja korko (vain 20 vuotta)
+        lyh = lyhennys if vuosi <= 20 else 0
+        korko_investointi = jaljella_oleva_laina * (korko / 100) if vuosi <= 20 else 0
+        jaljella_oleva_laina -= lyh
+
         sahkolasku = sahkon_hinta_vuosi * sahkon_kulutus_kwh
 
-        # Korjauslaina aktivoituu valittuna vuonna
-        if vuosi == korjaus_vuosi:
-            korjaus_laina_jaljella = korjaus_kustannus
-            vuodet_jaljella = laina_aika - vuosi + 1
-            korjaus_lyhennys = korjaus_kustannus / vuodet_jaljella
+        # Uusi korjauslaina aloitetaan tietyin välein
+        if (vuosi - 1) % korjaus_vali == 0:
+            uusi_korjaus = {
+                "jaljella": korjaus_hinta,
+                "lyhennys": korjaus_hinta / korjaus_laina_aika,
+                "vuosia_jaljella": korjaus_laina_aika
+            }
+            korjauslainat.append(uusi_korjaus)
 
-        korjaus_korko = korjaus_laina_jaljella * (korko / 100) if korjaus_laina_jaljella > 0 else 0
+        # Korjauslainojen vuosikustannus
+        korjaus_korko_yht = 0
+        korjaus_lyhennys_yht = 0
+        for laina in korjauslainat:
+            if laina["vuosia_jaljella"] > 0:
+                korko_tama = laina["jaljella"] * (korko / 100)
+                korjaus_korko_yht += korko_tama
+                korjaus_lyhennys_yht += laina["lyhennys"]
+                laina["jaljella"] -= laina["lyhennys"]
+                laina["vuosia_jaljella"] -= 1
 
-        kokonais = lyhennys + korko_vuodelta + sahkolasku + korjaus_lyhennys + korjaus_korko
+        kokonais = lyh + korko_investointi + sahkolasku + korjaus_lyhennys_yht + korjaus_korko_yht
         kustannukset.append(kokonais)
-
-        jaljella_oleva_laina -= lyhennys
-        if korjaus_laina_jaljella > 0:
-            korjaus_laina_jaljella -= korjaus_lyhennys
 
         sahkon_hinta_vuosi *= (1 + sahkon_inflaatio / 100)
 
     return kustannukset
 
-
 # Streamlit-sovellus
 def main():
-    st.title("Maalämpö vs Kaukolämpö - Laskuri (korjaukset & inflaatio mukana)")
+    st.title("Maalämpö vs Kaukolämpö – 50 vuoden malli korjauksilla ja inflaatiolla")
 
     with st.sidebar:
         st.header("Syötteet")
@@ -48,55 +59,28 @@ def main():
         korko = st.number_input("Lainan korko (% / vuosi)", value=3.0)
         sahkon_hinta = st.number_input("Sähkön hinta (€/kWh)", value=0.12)
         sahkon_inflaatio = st.number_input("Sähkön hinnan nousu (% / vuosi)", value=2.0)
-        sahkon_kulutus = st.number_input("Maalämmön sähkönkulutus (kWh/vuosi)", value=180000.0)
+        sahkon_kulutus = st.number_input("Maalämmön sähkönkulutus (kWh/v)", value=180000.0)
         kaukolampo_kustannus = st.number_input("Kaukolämmön vuosikustannus (€)", value=85000.0)
-        laina_aika = st.slider("Laina-aika (vuotta)", 5, 40, value=20)
+
         maksavat_neliot = st.number_input("Maksavat neliöt (m²)", value=1000.0)
-        korjaus_vuosi = st.slider("Maalämmön korjausvuosi", 1, laina_aika, value=15)
-        korjaus_kustannus = st.number_input("Korjauksen hinta (€)", value=20000.0)
 
-    vuodet = list(range(1, laina_aika + 1))
-    kaukolampo = [kaukolampo_kustannus] * laina_aika
+        st.markdown("### Korjaukset")
+        korjaus_vali = st.slider("Korjausväli (vuotta)", 5, 30, value=15)
+        korjaus_hinta = st.number_input("Yksittäisen korjauksen hinta (€)", value=20000.0)
+        korjaus_laina_aika = st.slider("Korjauslainan maksuaika (vuotta)", 1, 30, value=10)
 
-    maalampo_ilman = laske_kustannukset(investointi, 0, korko, sahkon_hinta, sahkon_kulutus,
-                                        laina_aika, korjaus_vuosi, korjaus_kustannus, sahkon_inflaatio)
+    # Laskenta
+    maalampo = laske_kustannukset_50v(investointi, omaisuuden_myynti, korko, sahkon_hinta, sahkon_kulutus,
+                                      korjaus_vali, korjaus_hinta, korjaus_laina_aika, sahkon_inflaatio)
 
-    maalampo_myynnilla = laske_kustannukset(investointi, omaisuuden_myynti, korko, sahkon_hinta, sahkon_kulutus,
-                                            laina_aika, korjaus_vuosi, korjaus_kustannus, sahkon_inflaatio)
-
-    # Ensimmäisen vuoden vastikelaskelma per m²
-    lainan_maara = investointi - omaisuuden_myynti
-    lyhennys = lainan_maara / laina_aika
-    korko_vuosi = lainan_maara * (korko / 100)
-    sahko_vuosi = sahkon_hinta * sahkon_kulutus
-    kokonais_vuosi = lyhennys + korko_vuosi + sahko_vuosi
-
-    lyh_m2 = lyhennys / maksavat_neliot
-    korko_m2 = korko_vuosi / maksavat_neliot
-    sahko_m2 = sahko_vuosi / maksavat_neliot
-    yhteensa_m2_vuosi = lyh_m2 + korko_m2 + sahko_m2
-    yhteensa_m2_kk = yhteensa_m2_vuosi / 12
-
-    kaukolampo_m2 = kaukolampo_kustannus / maksavat_neliot
-    kaukolampo_kk = kaukolampo_m2 / 12
-
-    st.subheader("Ensimmäisen vuoden vastikelaskelma per m²")
-    st.markdown(f"- **Lyhennys:** {lyh_m2:.2f} €/m²/vuosi")
-    st.markdown(f"- **Korko:** {korko_m2:.2f} €/m²/vuosi")
-    st.markdown(f"- **Sähkö:** {sahko_m2:.2f} €/m²/vuosi")
-    st.markdown(f"**Yhteensä:** {yhteensa_m2_vuosi:.2f} €/m²/v eli {yhteensa_m2_kk:.2f} €/m²/kk")
-
-    st.markdown("---")
-    st.markdown(f"**Kaukolämpövastike:** {kaukolampo_m2:.2f} €/m²/v eli {kaukolampo_kk:.2f} €/m²/kk")
-    st.markdown(f"**Erotus:** {kaukolampo_m2 - yhteensa_m2_vuosi:.2f} €/m²/v")
+    kaukolampo = [kaukolampo_kustannus] * 50
+    vuodet = list(range(1, 51))
 
     # Kaavio
     fig, ax = plt.subplots()
-    ax.plot(vuodet, kaukolampo, label="Kaukolämpö", linestyle="--")
-    ax.plot(vuodet, maalampo_ilman, label="Maalämpö (ilman omaisuuden myyntiä)")
-    ax.plot(vuodet, maalampo_myynnilla, label="Maalämpö (myynnillä)")
-    ax.axvline(korjaus_vuosi, color='red', linestyle=':', label="Korjausvuosi")
-    ax.set_title("Lämmityskustannusten kehitys")
+    ax.plot(vuodet, kaukolampo, label="Kaukolämpö (vakio)", linestyle="--")
+    ax.plot(vuodet, maalampo, label="Maalämpö + korjaukset")
+    ax.set_title("Lämmityskustannukset 50 vuoden ajalta")
     ax.set_xlabel("Vuosi")
     ax.set_ylabel("Kustannus (€)")
     ax.legend()
