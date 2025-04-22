@@ -57,8 +57,16 @@ def laske_kustannukset_50v(investointi, omaisuuden_myynti, investointi_laina_aik
 
     return kustannukset
 
+def laske_kaukolampo_kustannukset(kustannus, inflaatio):
+    nykyinen = kustannus
+    tulos = []
+    for _ in range(50):
+        tulos.append(nykyinen)
+        nykyinen *= (1 + inflaatio / 100)
+    return tulos
+
 def main():
-    st.title("Maalämpö vs Kaukolämpö – 50 vuoden vertailu (myynnillä ja ilman)")
+    st.title("Maalämpö vs Kaukolämpö – 50 vuoden vertailu (kaikki vaihtoehdot)")
 
     with st.sidebar:
         st.header("Perustiedot")
@@ -70,6 +78,8 @@ def main():
         sahkon_inflaatio = st.number_input("Sähkön hinnan nousu (% / vuosi)", value=2.0)
         sahkon_kulutus = st.number_input("Maalämmön sähkönkulutus (kWh/v)", value=180000.0)
         kaukolampo_kustannus = st.number_input("Kaukolämmön vuosikustannus (€)", value=85000.0)
+        kaukolampo_inflaatio = st.number_input("Kaukolämmön hinnan nousu (% / vuosi)", value=2.0)
+        menetetty_kassavirta_kk = st.number_input("Menetetyn omaisuuden kassavirta (€ / kk)", value=0.0)
         maksavat_neliot = st.number_input("Maksavat neliöt (m²)", value=1000.0)
 
         st.header("Korjaukset")
@@ -78,7 +88,8 @@ def main():
         korjaus_laina_aika = st.slider("Korjauslainan maksuaika (vuotta)", 1, 30, value=10)
 
     vuodet = list(range(1, 51))
-    kaukolampo = [kaukolampo_kustannus] * 50
+
+    kaukolampo = laske_kaukolampo_kustannukset(kaukolampo_kustannus, kaukolampo_inflaatio)
 
     maalampo_ilman = laske_kustannukset_50v(
         investointi, 0, investointi_laina_aika, korko,
@@ -92,11 +103,16 @@ def main():
         korjaus_vali, korjaus_hinta, korjaus_laina_aika, sahkon_inflaatio
     )
 
+    # Menetetty kassavirta
+    kassavirta_vuosi = menetetty_kassavirta_kk * 12
+    kassavirrat = [kassavirta_vuosi] * 50
+    maalampo_myynnilla = [m + k for m, k in zip(maalampo_myynnilla, kassavirrat)]
+
     # Kaavio
     fig, ax = plt.subplots()
-    ax.plot(vuodet, kaukolampo, label="Kaukolämpö (vakio)", linestyle="--")
+    ax.plot(vuodet, kaukolampo, label="Kaukolämpö", linestyle="--")
     ax.plot(vuodet, maalampo_ilman, label="Maalämpö (ilman myyntiä)")
-    ax.plot(vuodet, maalampo_myynnilla, label="Maalämpö (myynnillä)")
+    ax.plot(vuodet, maalampo_myynnilla, label="Maalämpö (myynnillä + kassavirta)")
     ax.set_title("Lämmityskustannukset 50 vuoden ajalla")
     ax.set_xlabel("Vuosi")
     ax.set_ylabel("Kustannus (€)")
