@@ -45,7 +45,8 @@ def laske_kustannukset_50v(investointi, omaisuuden_myynti, investointi_laina_aik
                 korjaus_lyhennys_yht += laina["lyhennys"]
                 laina["jaljella"] -= laina["lyhennys"]
                 laina["vuosia_jaljella"] -= 1
-
+# Poista maksetut korjauslainat
+korjauslainat = [laina for laina in korjauslainat if laina["vuosia_jaljella"] > 0]
         kokonais = lyh + korko_investointi + sahkolasku + korjaus_lyhennys_yht + korjaus_korko_yht
         kustannukset.append(kokonais)
 
