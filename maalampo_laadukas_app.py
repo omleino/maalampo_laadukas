@@ -26,8 +26,8 @@ def laske_kustannukset_50v(investointi, omaisuuden_myynti, investointi_laina_aik
 
         sahkolasku = sahkon_hinta_vuosi * sahkon_kulutus_kwh
 
-        # Uusi korjauslaina
-        if (vuosi - 1) % korjaus_vali == 0:
+        # Uusi korjauslaina aloitetaan tietyin välein, ei heti vuodella 1
+        if vuosi > 1 and (vuosi - 1) % korjaus_vali == 0:
             uusi_korjaus = {
                 "jaljella": korjaus_hinta,
                 "lyhennys": korjaus_hinta / korjaus_laina_aika,
@@ -35,7 +35,7 @@ def laske_kustannukset_50v(investointi, omaisuuden_myynti, investointi_laina_aik
             }
             korjauslainat.append(uusi_korjaus)
 
-        # Korjauslainojen lyhennykset ja korot
+        # Korjauslainojen kokonaiskulut
         korjaus_korko_yht = 0
         korjaus_lyhennys_yht = 0
         for laina in korjauslainat:
